@@ -15,6 +15,16 @@ SexLab 之类的场景脚本会强制切到第三人称并接管玩家控制。�
 
 其他任何时候都不改动原版行为。插件没有配置文件，也不处理镜头角度限制（例如 Improved Camera 的 ±65° 偏移限制）。
 
+### 关于“第一人称”
+
+装了 Improved Camera 时，场景里切到的“第一人称”在游戏内部仍然是第三人称相机状态（`ThirdPersonState`），
+只是镜头移到了头部，所以同一个 hook 对它也有效。原版（未装 Improved Camera）的第一人称使用 `FirstPersonState`，本插件**不处理**。
+
+### 日志
+
+插件会在状态变化时记录一行日志（`povScriptMode`、移动控制是否启用、原版和最终的 `freeRotationEnabled`），
+用来确认 hook 在场景里有没有生效。场景里如果日志里完全没有这类记录，说明当时相机不在 `ThirdPersonState`。
+
 ## 依赖
 
 - Skyrim AE 1.6.1170
