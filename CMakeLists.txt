@@ -28,6 +28,9 @@ add_commonlibsse_plugin(
 
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 
+# The generated SKSEPluginInfo source relies on a precompiled header for the standard library includes.
+target_precompile_headers(${PROJECT_NAME} PRIVATE src/PCH.h)
+
 if(MSVC)
 	target_compile_options(${PROJECT_NAME} PRIVATE /permissive- /Zc:preprocessor /W4 /wd4100)
 endif()
