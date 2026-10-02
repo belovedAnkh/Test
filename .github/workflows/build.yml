@@ -13,6 +13,8 @@ env:
 jobs:
   build:
     runs-on: windows-latest
+    permissions:
+      contents: write
     steps:
       - uses: actions/checkout@v4
 
@@ -55,3 +57,18 @@ jobs:
           name: SexLabSceneFreeLook
           path: package/
           if-no-files-found: error
+
+      - name: Push built files to the build-output branch
+        if: github.event_name == 'push'
+        shell: pwsh
+        run: |
+          $out = Join-Path $env:RUNNER_TEMP 'out'
+          New-Item -ItemType Directory -Force -Path $out | Out-Null
+          Copy-Item -Recurse -Path package/* -Destination $out
+          Set-Location $out
+          git init -q
+          git config user.name "github-actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build of ${{ github.ref_name }} ${{ github.sha }}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" "HEAD:build-output-${{ github.ref_name }}"
