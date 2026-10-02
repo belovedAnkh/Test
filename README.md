@@ -1,55 +1,45 @@
-# SexLabSceneFreeLook
+# SexLabSceneFreeLook 2.0
 
-适用于 **Skyrim Special Edition / Anniversary Edition 1.6.1170** 的 SKSE 插件（CommonLibSSE-NG，C++）。
+适用于 **Skyrim SE / AE 1.6.1170** 的 SKSE 插件（CommonLibSSE-NG），配合 **Improved Camera SE 1.1.2** 使用。
+目的：**SexLab 场景开始时如果你在第一人称，场景里自动用角色自己的眼睛看，直到场景结束；平时什么都不改。**
 
-## 作用
+## 前提
 
-SexLab 之类的场景脚本会强制切到第三人称并接管玩家控制。在这种场景里，原版会让鼠标同时转动镜头和玩家身体。
-本插件让鼠标**只转镜头，不转玩家身体**。
+- Improved Camera 的配置（NEFARAM 用的是 `Profiles\110.ini`）里 `[EVENTS] bScripted=1`。其余保持整合包原样即可，`bThirdPerson` 不用开。
+- SexLab Framework（`SexLab.esm`）。没装时插件什么都不做。
 
-实现方式：钩住 `RE::ThirdPersonState` 的虚函数 `SetFreeRotationMode`（vtable 索引 `0x0D`）。
-先调用原函数，然后在下面两个条件**同时**成立时，把 `freeRotationEnabled` 设为 `true`：
+## 它做什么
 
-- `PlayerControls::data.povScriptMode` 为 `true`
-- `ControlMap::IsMovementControlsEnabled()` 为 `false`
+只在下面条件**同时**成立时介入：玩家在 SexLab 某个线程（`SexLabThread00`～`14`）的演员别名里，而且 SexLab 还没把玩家解锁（`SexLabAnimatingFaction` 等级不是 0）。
 
-其他任何时候都不改动原版行为。插件没有配置文件，也不处理镜头角度限制（例如 Improved Camera 的 ±65° 偏移限制）。
+1. SexLab 把镜头从第一人称强制切到第三人称的那一刻（`ThirdPersonState::Begin`，上一个状态是第一人称）：
+   - 打开 `PlayerControls::data.povScriptMode`（等同于 `Game.DisablePlayerControls` 里 abCamSwitch=true 的效果）。Improved Camera 把它当成「脚本场景」，于是从第一帧起就按场景处理，后面谁再打开移动控制（例如 SLSO 的进度条脚本每秒一次 `EnablePlayerControls`）都不会再把镜头踢回原生第一人称。
+   - 把第三人称缩放目标设成 `fMinCurrentZoom`（最近一档）。Improved Camera 只有在最近一档时才切到眼睛视角，所以场景一开始就是眼睛视角。
+   - 对话菜单开着时不介入（Improved Camera 本身在这种情况下也不接管）。
+2. 场景进行中：保持 `povScriptMode`，保持 `freeRotationEnabled`（鼠标只转视角，不转身体）。
+3. SexLab 解锁玩家（`UnlockActor` 把等级设为 0）或玩家离开线程别名：如果 `povScriptMode` 是本插件打开的，就关掉它。Improved Camera 随后自己切回第一人称。
 
-### 关于“第一人称”
+场景里用鼠标滚轮拉远就是第三人称，滚回最近又回到眼睛视角。`povScriptMode` 打开期间，原版的切换视角键不可用。
 
-装了 Improved Camera 时，场景里切到的“第一人称”在游戏内部仍然是第三人称相机状态（`ThirdPersonState`），
-只是镜头移到了头部，所以同一个 hook 对它也有效。原版（未装 Improved Camera）的第一人称使用 `FirstPersonState`，本插件**不处理**。
+开场时在第三人称的场景，本插件不介入，和原来一样。
 
-### 日志
+## 为什么需要它（Improved Camera 1.1.2 源码）
 
-插件会在状态变化时记录一行日志（`povScriptMode`、移动控制是否启用、原版和最终的 `freeRotationEnabled`），
-用来确认 hook 在场景里有没有生效。场景里如果日志里完全没有这类记录，说明当时相机不在 `ThirdPersonState`。
+- SexLab 1.66 在 `sslActorAlias.ClearEffects()` 里先强制第三人称，之后 `LockActor()` 才关移动控制。Improved Camera 会先看到一帧「普通第三人称」，在 `bThirdPerson=0` 时就放弃这一场的眼睛视角。
+- Improved Camera 一看到移动控制被重新打开，就判定场景结束；如果当时是眼睛视角，会调 `ForceFirstPerson` 进原生第一人称（站立高度、身体僵直）。
+- 脚本强制切第三人称时，Improved Camera 不会替你拉近（骑马、骑龙会），游戏会恢复你平时的第三人称距离。
 
-## 依赖
+## 日志
 
-- Skyrim AE 1.6.1170
-- [SKSE64](https://skse.silverlock.org/)（支持 1.6.1170 的版本）
-- [Address Library for SKSE Plugins](https://www.nexusmods.com/skyrimspecialedition/mods/32444)（AE 版本，`version-1-6-1170-0.bin`）
+`Documents\My Games\Skyrim Special Edition\SKSE\SexLabSceneFreeLook.log`：载入、找到的 SexLab 表单、每次接管和释放各一行。
 
-## 安装
+## 安装 / 停用
 
-把 `SexLabSceneFreeLook.dll` 放到：
-
-```
-Data\SKSE\Plugins\
-```
-
-用 Mod Organizer 2 或 Vortex 时，打包成 `SKSE\Plugins\SexLabSceneFreeLook.dll` 即可。
-日志在 `Documents\My Games\Skyrim Special Edition\SKSE\SexLabSceneFreeLook.log`。
-
-## 停用
-
-删除 `Data\SKSE\Plugins\SexLabSceneFreeLook.dll`，或在 MO2 / Vortex 里禁用这个 mod。
-插件不写存档数据，随时可以卸载，不影响存档。
+`SKSE\Plugins\SexLabSceneFreeLook.dll`。停用：在 MO2 里关掉这个 mod。不写存档数据。
 
 ## 编译
 
-需要 Windows、Visual Studio 2022 或更新的 MSVC、CMake 3.21+、Ninja、vcpkg。
+Windows、MSVC、CMake 3.21+、Ninja、vcpkg：
 
 ```
 set VCPKG_ROOT=C:\path\to\vcpkg
@@ -57,5 +47,4 @@ cmake --preset release
 cmake --build --preset release
 ```
 
-CommonLibSSE-NG 通过 `cmake/ports/commonlibsse-ng` 里的 vcpkg overlay port 按固定提交构建。
-GitHub Actions（`.github/workflows/build.yml`）会在 `windows-latest` 上编译，DLL 作为 artifact `SexLabSceneFreeLook` 上传。
+GitHub Actions（`.github/workflows/build.yml`）在 `windows-latest` 上编译，DLL 作为 artifact `SexLabSceneFreeLook` 上传。

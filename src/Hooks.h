@@ -3,4 +3,6 @@
 namespace Hooks
 {
 	void Install();
+	void OnDataLoaded();
+	void OnGameLoad();
 }

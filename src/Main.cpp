@@ -20,6 +20,21 @@ namespace
 		spdlog::set_default_logger(std::move(logger));
 		spdlog::set_pattern("[%Y-%m-%d %H:%M:%S.%e] [%l] %v");
 	}
+
+	void OnMessage(SKSE::MessagingInterface::Message* a_message)
+	{
+		switch (a_message->type) {
+		case SKSE::MessagingInterface::kDataLoaded:
+			Hooks::OnDataLoaded();
+			break;
+		case SKSE::MessagingInterface::kPreLoadGame:
+		case SKSE::MessagingInterface::kNewGame:
+			Hooks::OnGameLoad();
+			break;
+		default:
+			break;
+		}
+	}
 }
 
 SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
@@ -28,6 +43,9 @@ SKSEPluginLoad(const SKSE::LoadInterface* a_skse)
 	SetupLog();
 
 	Hooks::Install();
-	SKSE::log::info("SexLabSceneFreeLook loaded, ThirdPersonState::SetFreeRotationMode hooked.");
+	if (const auto messaging = SKSE::GetMessagingInterface()) {
+		messaging->RegisterListener(OnMessage);
+	}
+	SKSE::log::info("SexLabSceneFreeLook 2.0.0 loaded: FirstPersonState::End, ThirdPersonState::Begin/SetFreeRotationMode, PlayerCharacter::Update hooked.");
 	return true;
 }
